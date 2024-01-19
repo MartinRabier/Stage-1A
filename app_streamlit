@@ -1,0 +1,52 @@
+# Import python packages
+import streamlit as st
+import pandas as pd
+import datetime as dt
+from snowflake.snowpark.context import get_active_session
+
+
+sesh = get_active_session()
+
+
+# Write directly to the app
+st.title("Interface de saisie des données de prospects :clipboard:")
+st.write("Cette interface à pour but de recueillir les données du prospect afin de rendre possible l'opération de scoring")
+
+#création d'un dataframe pour récupérer les infos
+
+col = ['SIRET','METIER','TURNOVER','TAUX_HORRAIRE','PARKING','DATES','HEURE']
+df= pd.DataFrame(columns=col)
+col2 =['SIRET','METIER','TURNOVER','TAUX_HORRAIRE','PARKING']
+dfb = pd.DataFrame(columns=col2)
+
+#Recuperation des métiers
+
+df2 = sesh.sql("SELECT DISTINCT(LB_MET) AS MET FROM FR_DISCOVERY.LANDING_WSI.REF_MET LIMIT 5").to_pandas()
+#df2
+
+#Demande et traitement des données
+
+siret = str(st.text_input("SIRET :1234:"))
+metier =str(st.selectbox("METIER :male-mechanic:",df2['MET'].tolist()))
+turnover = str(st.number_input("TAUX DE TURNOVER EN % :waving_white_flag:",min_value=0,max_value=100))
+taux_horraire = str(st.number_input("TAUX HORRAIRE en € :heavy_dollar_sign:",min_value = 11,max_value=100))
+parking = str(st.selectbox("PRESENCE D'UN PARKING :blue_car:",['Oui','Non']))
+date = dt.date.today()
+time = dt.datetime.now()
+delta = dt.timedelta(hours=9)
+temp =time+delta
+heure = str(temp.time())
+data = [siret,metier,turnover,taux_horraire,parking,date,heure]
+df.loc[len(df)]=data
+
+#affichage du choix
+if(st.button("afficher les choix :eyes:")):
+    screen = st.table(df)
+
+#validation du choix
+if(st.button("valider les choix :ballot_box_with_check:")):
+    query = "INSERT INTO FR_DISCOVERY.LANDING_WSI.TEST_STREAMLIT_PROSPECT (SIRET,METIER,TURNOVER,TAUX_HORRAIRE,PARKING,DATES,HEURE) VALUES (:1,:2,:3,:4,:5,:6,:7)"
+    sesh.sql(query,(df['SIRET'].iloc[0],df['METIER'].iloc[0],df['TURNOVER'].iloc[0],df['TAUX_HORRAIRE'].iloc[0],df['PARKING'].iloc[0],df['DATES'].iloc[0],df['HEURE'].iloc[0])).collect()
+    st.success("Les données ont été ajoutées a Snowflake")
+
+
